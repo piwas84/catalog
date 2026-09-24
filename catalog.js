@@ -73,6 +73,7 @@
             }
         },
         cub: { getCatalog: ApiProviders.tmdb.getCatalog },
+
         eneida: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: 'http://lampaua.mooo.com/eneida/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -81,6 +82,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         vokino: { getCatalog: function (cat, page, resolve, reject) {
             var token = Lampa.Storage.get('vokino_token', '');
             safeAjax({ url: 'http://lampaua.mooo.com/vokino/list?type=' + (cat || 'movie') + '&page=' + page + '&token=' + token,
@@ -90,6 +92,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         rezka: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: 'http://lampaua.mooo.com/rezka/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -98,6 +101,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         uaflix: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: 'http://lampaua.mooo.com/uaflix/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -106,6 +110,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         uakino: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: 'http://lampaua.mooo.com/uakino/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -114,6 +119,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         sork: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: 'http://lampaua.mooo.com/sork/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -122,6 +128,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         tvflix: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: 'http://lampaua.mooo.com/tvflix/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -130,6 +137,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         zima: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: 'http://lampaua.mooo.com/zima/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -138,6 +146,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         kinozal: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: 'http://lampaua.mooo.com/kinozal/catalog?cat=' + (cat || 'movie') + '&page=' + page,
                 success: function (res) {
@@ -146,6 +155,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         kinopoisk: { getCatalog: function (cat, page, resolve, reject) {
             var url = 'https://api.kinopoisk.dev/v1.3/movie?limit=20&sort=popularity&language=uk-UA&page=' + page;
             if (cat === 'tv_series') url = 'https://api.kinopoisk.dev/v1.3/series?limit=20&sort=popularity&language=uk-UA&page=' + page;
@@ -358,7 +368,6 @@
             }
         });
 
-        // Пункт в лівому меню (прибрано, як ти просив)
         Lampa.Listener.follow('app', function (e) {
             if (e.type === 'ready') {
                 var icon = '<svg height="24" viewBox="0 0 24 24" width="24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>';
