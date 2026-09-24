@@ -2,7 +2,6 @@
     'use strict';
 
     // ====================== КОНФІГУРАЦІЯ ======================
-    var HOST_SERVER = 'http://lampaua.mooo.com';   // залишаємо тільки для CORS-проксі
     var CORS_PROXY = 'https://corsproxy.io/?';
 
     var SOURCES_LIST = {
@@ -23,15 +22,23 @@
     // ====================== КОРС-ПРОКСІ ======================
     function safeAjax(params) {
         var url = params.url;
-        if (params.useCorsProxy && !url.startsWith(HOST_SERVER)) {
+        var isExternal = !url.includes('lampaua.mooo.com');
+        var useProxy = params.useCorsProxy || isExternal;
+
+        if (useProxy) {
             url = CORS_PROXY + encodeURIComponent(url);
+        }
+
+        // Внутрішні джерела — без проксі (стабільніше)
+        if (!isExternal && params.useCorsProxy !== true) {
+            url = url.replace(CORS_PROXY, ''); // чистимо, якщо було
         }
 
         $.ajax({
             url: url,
             type: params.type || 'GET',
             dataType: 'json',
-            timeout: params.timeout || 10000,
+            timeout: params.timeout || 20000, // 20 секунд — стабільніше
             headers: params.headers || {},
             success: function (res) {
                 params.success(res);
@@ -39,8 +46,19 @@
             error: function (jqXHR) {
                 var status = jqXHR.status || 0;
                 var statusText = jqXHR.statusText || 'Unknown';
+                console.warn('CORS / Ajax error: ' + status + ' (' + statusText + ') — ' + url);
+
+                if (params.retryCount && params.retryCount < 3) {
+                    console.log('Retry ' + (params.retryCount + 1) + '/3...');
+                    params.retryCount++;
+                    setTimeout(function () {
+                        params.success = params.originalSuccess || params.success; // відновлюємо
+                        safeAjax(params); // повторний виклик
+                    }, 800);
+                    return;
+                }
+
                 if (status !== 200 && status !== 0) {
-                    console.warn('CORS error: ' + status + ' (' + statusText + ')');
                     params.error(jqXHR);
                     return;
                 }
@@ -49,13 +67,13 @@
         });
     }
 
-    // ====================== АДАПТЕРИ ДЖЕРЕЛ (повністю повернені) ======================
+    // ====================== АДАПТЕРИ ДЖЕРЕЛ ======================
     var ApiProviders = {
         tmdb: {
             getCatalog: function (cat, page, resolve, reject) {
                 var key = Lampa.TMDB.key ? Lampa.TMDB.key() : '';
                 var url = 'https://api.themoviedb.org/3/movie/' + (cat || 'popular') + '?api_key=' + key + '&language=uk-UA&page=' + page;
-                safeAjax({ url: url, success: function (res) {
+                safeAjax({ url: url, useCorsProxy: true, success: function (res) {
                     var items = (res.results || []).map(function (i) {
                         return { id: i.id, title: i.title || i.name, poster: i.poster_path ? 'https://image.tmdb.org/t/p/w500' + i.poster_path : '', year: (i.release_date || i.first_air_date || '').substring(0, 4), type: i.media_type || 'movie', source: 'tmdb' };
                     });
@@ -66,7 +84,7 @@
         cub: { getCatalog: ApiProviders.tmdb.getCatalog },
 
         eneida: { getCatalog: function (cat, page, resolve, reject) {
-            safeAjax({ url: HOST_SERVER + '/eneida/catalog?cat=' + (cat || 'main') + '&page=' + page,
+            safeAjax({ url: 'http://lampaua.mooo.com/eneida/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
                     var raw = Array.isArray(res) ? res : (res.items || []);
                     var items = raw.map(function (i) { return { id: i.id || i.news_id, title: i.title, poster: i.poster || i.img, year: i.year || '', type: i.type || 'movie', url: i.url || i.link, source: 'eneida' }; });
@@ -76,7 +94,7 @@
 
         vokino: { getCatalog: function (cat, page, resolve, reject) {
             var token = Lampa.Storage.get('vokino_token', '');
-            safeAjax({ url: HOST_SERVER + '/vokino/list?type=' + (cat || 'movie') + '&page=' + page + '&token=' + token,
+            safeAjax({ url: 'http://lampaua.mooo.com/vokino/list?type=' + (cat || 'movie') + '&page=' + page + '&token=' + token,
                 success: function (res) {
                     var raw = res.channels || res.items || res.data || [];
                     var items = raw.map(function (i) { return { id: i.id || i.vokino_id, title: i.title || i.name, poster: i.poster || i.cover, year: i.year || '', type: i.type === 'serial' ? 'tv' : 'movie', url: i.url, source: 'vokino' }; });
@@ -85,7 +103,7 @@
         }},
 
         rezka: { getCatalog: function (cat, page, resolve, reject) {
-            safeAjax({ url: HOST_SERVER + '/rezka/catalog?cat=' + (cat || 'main') + '&page=' + page,
+            safeAjax({ url: 'http://lampaua.mooo.com/rezka/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
                     var raw = Array.isArray(res) ? res : (res.items || []);
                     var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type || 'movie', url: i.url, source: 'rezka' }; });
@@ -94,7 +112,7 @@
         }},
 
         uaflix: { getCatalog: function (cat, page, resolve, reject) {
-            safeAjax({ url: HOST_SERVER + '/uaflix/catalog?cat=' + (cat || 'main') + '&page=' + page,
+            safeAjax({ url: 'http://lampaua.mooo.com/uaflix/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
                     var raw = Array.isArray(res) ? res : (res.items || []);
                     var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type === 'serial' ? 'tv' : 'movie', url: i.url, source: 'uaflix' }; });
@@ -103,7 +121,7 @@
         }},
 
         uakino: { getCatalog: function (cat, page, resolve, reject) {
-            safeAjax({ url: HOST_SERVER + '/uakino/catalog?cat=' + (cat || 'main') + '&page=' + page,
+            safeAjax({ url: 'http://lampaua.mooo.com/uakino/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
                     var raw = Array.isArray(res) ? res : (res.items || []);
                     var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type === 'serial' ? 'tv' : 'movie', url: i.url, source: 'uakino' }; });
@@ -112,7 +130,7 @@
         }},
 
         sork: { getCatalog: function (cat, page, resolve, reject) {
-            safeAjax({ url: HOST_SERVER + '/sork/catalog?cat=' + (cat || 'main') + '&page=' + page,
+            safeAjax({ url: 'http://lampaua.mooo.com/sork/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
                     var raw = Array.isArray(res) ? res : (res.items || []);
                     var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type || 'movie', url: i.url, source: 'sork' }; });
@@ -121,7 +139,7 @@
         }},
 
         tvflix: { getCatalog: function (cat, page, resolve, reject) {
-            safeAjax({ url: HOST_SERVER + '/tvflix/catalog?cat=' + (cat || 'main') + '&page=' + page,
+            safeAjax({ url: 'http://lampaua.mooo.com/tvflix/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
                     var raw = Array.isArray(res) ? res : (res.items || []);
                     var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type === 'serial' ? 'tv' : 'movie', url: i.url, source: 'tvflix' }; });
@@ -130,7 +148,7 @@
         }},
 
         zima: { getCatalog: function (cat, page, resolve, reject) {
-            safeAjax({ url: HOST_SERVER + '/zima/catalog?cat=' + (cat || 'main') + '&page=' + page,
+            safeAjax({ url: 'http://lampaua.mooo.com/zima/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
                     var raw = Array.isArray(res) ? res : (res.items || []);
                     var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type === 'serial' ? 'tv' : 'movie', url: i.url, source: 'zima' }; });
@@ -139,7 +157,7 @@
         }},
 
         kinozal: { getCatalog: function (cat, page, resolve, reject) {
-            safeAjax({ url: HOST_SERVER + '/kinozal/catalog?cat=' + (cat || 'movie') + '&page=' + page,
+            safeAjax({ url: 'http://lampaua.mooo.com/kinozal/catalog?cat=' + (cat || 'movie') + '&page=' + page,
                 success: function (res) {
                     var raw = Array.isArray(res) ? res : (res.items || []);
                     var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type || (cat === 'tv' ? 'tv' : 'movie'), url: i.url, source: 'kinozal' }; });
@@ -152,6 +170,7 @@
             if (cat === 'tv_series') url = 'https://api.kinopoisk.dev/v1.3/series?limit=20&sort=popularity&language=uk-UA&page=' + page;
             safeAjax({
                 url: url,
+                useCorsProxy: true,
                 success: function (res) {
                     var raw = res.docs || [];
                     var items = raw.map(function (i) {
@@ -170,7 +189,9 @@
         }}
     };
 
-    // ====================== КОМПОНЕНТ КАТАЛОГУ ======================
+    // ====================== КОМПОНЕНТ КАТАЛОГУ, ОНЛАЙН ПЛЕЄР, РЕЄСТРАЦІЯ ======================
+    // (весь код PrimaryCatalog, startOnlinePlayback, showSeasons, initPlugin — ідентичний попередній версії)
+
     function PrimaryCatalog(object) {
         var comp = this;
         var scroll = new Lampa.Scroll({ mask: true, over: true });
@@ -261,13 +282,12 @@
         };
     }
 
-    // ====================== ОНЛАЙН ПЛЕЄР ======================
     function startOnlinePlayback(cardData) {
         var source = Lampa.Storage.get('active_primary_source', 'tmdb');
         Lampa.Noty.show('Пошук потоків [' + source.toUpperCase() + ']...');
 
         safeAjax({
-            url: HOST_SERVER + '/' + source + '/stream?id=' + cardData.id + '&url=' + encodeURIComponent(cardData.url || ''),
+            url: 'http://lampaua.mooo.com/' + source + '/stream?id=' + cardData.id + '&url=' + encodeURIComponent(cardData.url || ''),
             useCorsProxy: true,
             success: function (res) {
                 var translations = res.translations || res || [];
@@ -289,7 +309,7 @@
                                 title: cardData.title,
                                 subtitle: t.name,
                                 url: t.stream_url || t.file,
-                                headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': HOST_SERVER }
+                                headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'http://lampaua.mooo.com' }
                             });
                         }
                     }
@@ -325,7 +345,6 @@
         });
     }
 
-    // ====================== РЕЄСТРАЦІЯ ======================
     function initPlugin() {
         Lampa.Component.add('primary_catalog', PrimaryCatalog);
 
@@ -360,7 +379,6 @@
             }
         });
 
-        // Пункт в лівому меню (тільки один раз)
         Lampa.Listener.follow('app', function (e) {
             if (e.type === 'ready') {
                 var icon = '<svg height="24" viewBox="0 0 24 24" width="24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>';
