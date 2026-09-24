@@ -19,7 +19,7 @@
         'kinopoisk': 'Kinopoisk'
     };
 
-    // ====================== КОРС-ПРОКСІ (стабільний) ======================
+    // ====================== КОРС-ПРОКСІ ======================
     function safeAjax(params) {
         var url = params.url;
         var isExternal = !url.includes('lampaua.mooo.com');
@@ -45,9 +45,7 @@
 
                 if (params.retryCount && params.retryCount < 3) {
                     params.retryCount++;
-                    setTimeout(function () {
-                        safeAjax(params);
-                    }, 800);
+                    setTimeout(function () { safeAjax(params); }, 800);
                     return;
                 }
 
@@ -337,7 +335,7 @@
         });
     }
 
-    // ====================== РЕЄСТРАЦІЯ В ЛАМПА ======================
+    // ====================== РЕЄСТРАЦІЯ (чиста та без конфліктів) ======================
     function initPlugin() {
         Lampa.Component.add('primary_catalog', PrimaryCatalog);
 
@@ -351,13 +349,12 @@
             '</div>'
         );
 
+        // Чистий реєстраційний хук
         Lampa.Listener.follow('settings', function (e) {
             if (e.name === 'parent' && e.body) {
                 var other_block = e.body.find('[data-component="more"], [data-component="other"]');
                 if (other_block.length) {
                     other_block.after(Lampa.Template.get('settings_primary_source_item'));
-                } else if (e.target && (e.target.component === 'more' || e.target.component === 'other')) {
-                    e.body.append(Lampa.Template.get('settings_primary_source_item'));
                 }
             }
         });
@@ -372,7 +369,6 @@
             }
         });
 
-        // Пункт в лівому меню (тільки один раз)
         Lampa.Listener.follow('app', function (e) {
             if (e.type === 'ready') {
                 var icon = '<svg height="24" viewBox="0 0 24 24" width="24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>';
@@ -400,4 +396,5 @@
     }
 
     if (window.appready) initPlugin();
-    else Lampa.Listener.follow('app', func
+    else Lampa.Listener.follow('app', function (e) { if (e.type === 'ready') initPlugin(); });
+})();
