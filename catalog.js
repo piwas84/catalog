@@ -2,7 +2,7 @@
     'use strict';
 
     // ====================== КОНФІГУРАЦІЯ ======================
-    var HOST_SERVER = 'http://lampaua.mooo.com';
+    var HOST_SERVER = 'http://lampaua.mooo.com';   // залишаємо тільки для CORS-проксі
     var CORS_PROXY = 'https://corsproxy.io/?';
 
     var SOURCES_LIST = {
@@ -49,10 +49,22 @@
         });
     }
 
-    // ====================== АДАПТЕРИ ДЖЕРЕЛ ======================
+    // ====================== АДАПТЕРИ ДЖЕРЕЛ (повністю повернені) ======================
     var ApiProviders = {
-        tmdb: { /* ... той самий код ... */ },
+        tmdb: {
+            getCatalog: function (cat, page, resolve, reject) {
+                var key = Lampa.TMDB.key ? Lampa.TMDB.key() : '';
+                var url = 'https://api.themoviedb.org/3/movie/' + (cat || 'popular') + '?api_key=' + key + '&language=uk-UA&page=' + page;
+                safeAjax({ url: url, success: function (res) {
+                    var items = (res.results || []).map(function (i) {
+                        return { id: i.id, title: i.title || i.name, poster: i.poster_path ? 'https://image.tmdb.org/t/p/w500' + i.poster_path : '', year: (i.release_date || i.first_air_date || '').substring(0, 4), type: i.media_type || 'movie', source: 'tmdb' };
+                    });
+                    resolve({ items: items, has_more: page < res.total_pages });
+                }, error: reject });
+            }
+        },
         cub: { getCatalog: ApiProviders.tmdb.getCatalog },
+
         eneida: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: HOST_SERVER + '/eneida/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -61,6 +73,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         vokino: { getCatalog: function (cat, page, resolve, reject) {
             var token = Lampa.Storage.get('vokino_token', '');
             safeAjax({ url: HOST_SERVER + '/vokino/list?type=' + (cat || 'movie') + '&page=' + page + '&token=' + token,
@@ -70,6 +83,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         rezka: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: HOST_SERVER + '/rezka/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -78,6 +92,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         uaflix: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: HOST_SERVER + '/uaflix/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -86,6 +101,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         uakino: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: HOST_SERVER + '/uakino/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -94,6 +110,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         sork: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: HOST_SERVER + '/sork/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -102,6 +119,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         tvflix: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: HOST_SERVER + '/tvflix/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -110,6 +128,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         zima: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: HOST_SERVER + '/zima/catalog?cat=' + (cat || 'main') + '&page=' + page,
                 success: function (res) {
@@ -118,6 +137,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         kinozal: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: HOST_SERVER + '/kinozal/catalog?cat=' + (cat || 'movie') + '&page=' + page,
                 success: function (res) {
@@ -126,6 +146,7 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
+
         kinopoisk: { getCatalog: function (cat, page, resolve, reject) {
             var url = 'https://api.kinopoisk.dev/v1.3/movie?limit=20&sort=popularity&language=uk-UA&page=' + page;
             if (cat === 'tv_series') url = 'https://api.kinopoisk.dev/v1.3/series?limit=20&sort=popularity&language=uk-UA&page=' + page;
@@ -312,7 +333,7 @@
 
         Lampa.Template.add('settings_primary_source_item', 
             '<div class="settings-param selector" data-type="select" data-name="active_primary_source">' +
-                '<div class="settings-param__name">Основне джерело</div>' +
+                '<div class="settings-param__name">Основний Каталог</div>' +
                 '<div class="settings-param__value"></div>' +
                 '<div class="settings-param__descr">Оберіть єдине джерело для пошуку та каталогу</div>' +
             '</div>'
@@ -331,3 +352,41 @@
 
         Lampa.Listener.follow('change', function (e) {
             if (e.name === 'active_primary_source') {
+                Lampa.Storage.set('active_primary_source', e.value);
+                Lampa.Noty.show('Активне джерело: ' + SOURCES_LIST[e.value]);
+                if (Lampa.Activity.active() && Lampa.Activity.active().component === 'primary_catalog') {
+                    Lampa.Activity.replace();
+                }
+            }
+        });
+
+        // Пункт в лівому меню (тільки один раз)
+        Lampa.Listener.follow('app', function (e) {
+            if (e.type === 'ready') {
+                var icon = '<svg height="24" viewBox="0 0 24 24" width="24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>';
+                var menu_item = $('<div class="menu__item selector" data-action="primary_catalog">' +
+                    '<div class="menu__ico">' + icon + '</div>' +
+                    '<div class="menu__text">Основний Каталог</div>' +
+                '</div>');
+                menu_item.on('hover:enter', function () {
+                    Lampa.Activity.push({ title: 'Каталог', component: 'primary_catalog', page: 1 });
+                });
+                $('.menu .menu__list').append(menu_item);
+            }
+        });
+
+        Lampa.Listener.follow('full', function (e) {
+            if (e.type === 'complete') {
+                var btn = $('<div class="full-start__button selector button--online-primary" style="background: rgba(255,255,255,0.1); border-radius: 0.3em; margin-left: 0.5em;">' +
+                    '<svg height="24" viewBox="0 0 24 24" width="24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>' +
+                    '<span>Онлайн</span>' +
+                '</div>');
+                btn.on('hover:enter', function () { startOnlinePlayback(e.data.movie); });
+                e.body.find('.full-start__buttons').append(btn);
+            }
+        });
+    }
+
+    if (window.appready) initPlugin();
+    else Lampa.Listener.follow('app', function (e) { if (e.type === 'ready') initPlugin(); });
+})();
