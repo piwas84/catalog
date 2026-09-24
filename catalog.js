@@ -17,7 +17,7 @@
         'tvflix': 'TVFlix',
         'zima': 'Zima',
         'kinozal': 'Kinozal',
-        'kinopoisk': 'Kinopoisk'   // 🔥 НОВЕ
+        'kinopoisk': 'Kinopoisk'
     };
 
     // ====================== КОРС-ПРОКСІ ======================
@@ -126,43 +126,30 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
-        // ====================== НОВЕ ДЖЕРЕЛО ======================
-        kinopoisk: {
-            getCatalog: function (cat, page, resolve, reject) {
-                // kinopoisk.dev API (без ключів, з кешем)
-                var url = 'https://api.kinopoisk.dev/v1.3/movie?limit=20&sort=popularity&language=uk-UA&page=' + page;
-                if (cat === 'tv_series') {
-                    url = 'https://api.kinopoisk.dev/v1.3/series?limit=20&sort=popularity&language=uk-UA&page=' + page;
-                } else if (cat === 'main') {
-                    // популярні фільми
-                    url = 'https://api.kinopoisk.dev/v1.3/movie?limit=20&sort=popularity&language=uk-UA&page=' + page;
-                }
-                safeAjax({
-                    url: url,
-                    success: function (res) {
-                        var raw = res.docs || [];
-                        var items = raw.map(function (i) {
-                            return {
-                                id: i.id,
-                                title: i.name || i.title,
-                                poster: i.poster ? 'https://avatars.kinopoisk.net/' + i.poster : '',
-                                year: i.year || '',
-                                type: i.series ? 'tv' : 'movie',
-                                url: 'https://www.kinopoisk.ru/' + (i.series ? 'series/' : 'film/') + i.id + '/',
-                                source: 'kinopoisk'
-                            };
-                        });
-                        resolve({ items: items, has_more: items.length > 0 });
-                    },
-                    error: reject
-                });
-            }
-        }
+        kinopoisk: { getCatalog: function (cat, page, resolve, reject) {
+            var url = 'https://api.kinopoisk.dev/v1.3/movie?limit=20&sort=popularity&language=uk-UA&page=' + page;
+            if (cat === 'tv_series') url = 'https://api.kinopoisk.dev/v1.3/series?limit=20&sort=popularity&language=uk-UA&page=' + page;
+            safeAjax({
+                url: url,
+                success: function (res) {
+                    var raw = res.docs || [];
+                    var items = raw.map(function (i) {
+                        return {
+                            id: i.id,
+                            title: i.name || i.title,
+                            poster: i.poster ? 'https://avatars.kinopoisk.net/' + i.poster : '',
+                            year: i.year || '',
+                            type: i.series ? 'tv' : 'movie',
+                            url: 'https://www.kinopoisk.ru/' + (i.series ? 'series/' : 'film/') + i.id + '/',
+                            source: 'kinopoisk'
+                        };
+                    });
+                    resolve({ items: items, has_more: items.length > 0 });
+                }, error: reject });
+        }}
     };
 
-    // ====================== КОМПОНЕНТ КАТАЛОГУ, ОНЛАЙН ПЛЕЄР, РЕЄСТРАЦІЯ ======================
-    // (весь код PrimaryCatalog, startOnlinePlayback, showSeasons, initPlugin — ідентичний попередній версії)
-
+    // ====================== КОМПОНЕНТ КАТАЛОГУ ======================
     function PrimaryCatalog(object) {
         var comp = this;
         var scroll = new Lampa.Scroll({ mask: true, over: true });
@@ -253,6 +240,7 @@
         };
     }
 
+    // ====================== ОНЛАЙН ПЛЕЄР ======================
     function startOnlinePlayback(cardData) {
         var source = Lampa.Storage.get('active_primary_source', 'tmdb');
         Lampa.Noty.show('Пошук потоків [' + source.toUpperCase() + ']...');
@@ -271,4 +259,75 @@
                 Lampa.Select.show({
                     title: 'Оберіть озвучку',
                     items: selectItems,
-                    onSelect: function (item)
+                    onSelect: function (item) {
+                        var t = item.translation;
+                        if (t.seasons) {
+                            showSeasons(cardData, t.seasons);
+                        } else {
+                            Lampa.Player.play({
+                                title: cardData.title,
+                                subtitle: t.name,
+                                url: t.stream_url || t.file,
+                                headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': HOST_SERVER }
+                            });
+                        }
+                    }
+                });
+            },
+            error: function () {
+                Lampa.Noty.show('Помилка отримання даних від сервера');
+            }
+        });
+    }
+
+    function showSeasons(cardData, seasons) {
+        var items = seasons.map(function (s) { return { title: 'Сезон ' + s.number, season: s }; });
+        Lampa.Select.show({
+            title: 'Оберіть сезон',
+            items: items,
+            onSelect: function (item) {
+                var epItems = item.season.episodes.map(function (e) {
+                    return { title: 'Серія ' + e.number, ep: e };
+                });
+                Lampa.Select.show({
+                    title: 'Оберіть серію',
+                    items: epItems,
+                    onSelect: function (epItem) {
+                        Lampa.Player.play({
+                            title: cardData.title,
+                            subtitle: 'Сезон ' + item.season.number + ' / Серія ' + epItem.ep.number,
+                            url: epItem.ep.stream_url || epItem.ep.file
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    // ====================== РЕЄСТРАЦІЯ ======================
+    function initPlugin() {
+        Lampa.Component.add('primary_catalog', PrimaryCatalog);
+
+        Lampa.Params.select('active_primary_source', SOURCES_LIST, 'tmdb');
+
+        Lampa.Template.add('settings_primary_source_item', 
+            '<div class="settings-param selector" data-type="select" data-name="active_primary_source">' +
+                '<div class="settings-param__name">Основне джерело</div>' +
+                '<div class="settings-param__value"></div>' +
+                '<div class="settings-param__descr">Оберіть єдине джерело для пошуку та каталогу</div>' +
+            '</div>'
+        );
+
+        Lampa.Listener.follow('settings', function (e) {
+            if (e.name === 'parent' && e.body) {
+                var other_block = e.body.find('[data-component="more"], [data-component="other"]');
+                if (other_block.length) {
+                    other_block.after(Lampa.Template.get('settings_primary_source_item'));
+                } else if (e.target && (e.target.component === 'more' || e.target.component === 'other')) {
+                    e.body.append(Lampa.Template.get('settings_primary_source_item'));
+                }
+            }
+        });
+
+        Lampa.Listener.follow('change', function (e) {
+            if (e.name === 'active_primary_source') {
