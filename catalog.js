@@ -60,7 +60,18 @@
 
     // ====================== АДАПТЕРИ ДЖЕРЕЛ ======================
     var ApiProviders = {
-        tmdb: { /* той самий код, що в попередній версії */ },
+        tmdb: {
+            getCatalog: function (cat, page, resolve, reject) {
+                var key = Lampa.TMDB.key ? Lampa.TMDB.key() : '';
+                var url = 'https://api.themoviedb.org/3/movie/' + (cat || 'popular') + '?api_key=' + key + '&language=uk-UA&page=' + page;
+                safeAjax({ url: url, useCorsProxy: true, success: function (res) {
+                    var items = (res.results || []).map(function (i) {
+                        return { id: i.id, title: i.title || i.name, poster: i.poster_path ? 'https://image.tmdb.org/t/p/w500' + i.poster_path : '', year: (i.release_date || i.first_air_date || '').substring(0, 4), type: i.media_type || 'movie', source: 'tmdb' };
+                    });
+                    resolve({ items: items, has_more: page < res.total_pages });
+                }, error: reject });
+            }
+        },
         cub: { getCatalog: ApiProviders.tmdb.getCatalog },
         eneida: { getCatalog: function (cat, page, resolve, reject) {
             safeAjax({ url: 'http://lampaua.mooo.com/eneida/catalog?cat=' + (cat || 'main') + '&page=' + page,
@@ -70,13 +81,97 @@
                     resolve({ items: items, has_more: items.length > 0 });
                 }, error: reject });
         }},
-        // ... (всі інші джерела — vokino, rezka, uaflix, uakino, sork, tvflix, zima, kinozal, kinopoisk) — ті самі, що в останньому повідомленні
-        // (щоб не повторювати 200 рядків — використовуй той самий блок, що я надсилав у попередній відповіді)
+        vokino: { getCatalog: function (cat, page, resolve, reject) {
+            var token = Lampa.Storage.get('vokino_token', '');
+            safeAjax({ url: 'http://lampaua.mooo.com/vokino/list?type=' + (cat || 'movie') + '&page=' + page + '&token=' + token,
+                success: function (res) {
+                    var raw = res.channels || res.items || res.data || [];
+                    var items = raw.map(function (i) { return { id: i.id || i.vokino_id, title: i.title || i.name, poster: i.poster || i.cover, year: i.year || '', type: i.type === 'serial' ? 'tv' : 'movie', url: i.url, source: 'vokino' }; });
+                    resolve({ items: items, has_more: items.length > 0 });
+                }, error: reject });
+        }},
+        rezka: { getCatalog: function (cat, page, resolve, reject) {
+            safeAjax({ url: 'http://lampaua.mooo.com/rezka/catalog?cat=' + (cat || 'main') + '&page=' + page,
+                success: function (res) {
+                    var raw = Array.isArray(res) ? res : (res.items || []);
+                    var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type || 'movie', url: i.url, source: 'rezka' }; });
+                    resolve({ items: items, has_more: items.length > 0 });
+                }, error: reject });
+        }},
+        uaflix: { getCatalog: function (cat, page, resolve, reject) {
+            safeAjax({ url: 'http://lampaua.mooo.com/uaflix/catalog?cat=' + (cat || 'main') + '&page=' + page,
+                success: function (res) {
+                    var raw = Array.isArray(res) ? res : (res.items || []);
+                    var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type === 'serial' ? 'tv' : 'movie', url: i.url, source: 'uaflix' }; });
+                    resolve({ items: items, has_more: items.length > 0 });
+                }, error: reject });
+        }},
+        uakino: { getCatalog: function (cat, page, resolve, reject) {
+            safeAjax({ url: 'http://lampaua.mooo.com/uakino/catalog?cat=' + (cat || 'main') + '&page=' + page,
+                success: function (res) {
+                    var raw = Array.isArray(res) ? res : (res.items || []);
+                    var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type === 'serial' ? 'tv' : 'movie', url: i.url, source: 'uakino' }; });
+                    resolve({ items: items, has_more: items.length > 0 });
+                }, error: reject });
+        }},
+        sork: { getCatalog: function (cat, page, resolve, reject) {
+            safeAjax({ url: 'http://lampaua.mooo.com/sork/catalog?cat=' + (cat || 'main') + '&page=' + page,
+                success: function (res) {
+                    var raw = Array.isArray(res) ? res : (res.items || []);
+                    var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type || 'movie', url: i.url, source: 'sork' }; });
+                    resolve({ items: items, has_more: items.length > 0 });
+                }, error: reject });
+        }},
+        tvflix: { getCatalog: function (cat, page, resolve, reject) {
+            safeAjax({ url: 'http://lampaua.mooo.com/tvflix/catalog?cat=' + (cat || 'main') + '&page=' + page,
+                success: function (res) {
+                    var raw = Array.isArray(res) ? res : (res.items || []);
+                    var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type === 'serial' ? 'tv' : 'movie', url: i.url, source: 'tvflix' }; });
+                    resolve({ items: items, has_more: items.length > 0 });
+                }, error: reject });
+        }},
+        zima: { getCatalog: function (cat, page, resolve, reject) {
+            safeAjax({ url: 'http://lampaua.mooo.com/zima/catalog?cat=' + (cat || 'main') + '&page=' + page,
+                success: function (res) {
+                    var raw = Array.isArray(res) ? res : (res.items || []);
+                    var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type === 'serial' ? 'tv' : 'movie', url: i.url, source: 'zima' }; });
+                    resolve({ items: items, has_more: items.length > 0 });
+                }, error: reject });
+        }},
+        kinozal: { getCatalog: function (cat, page, resolve, reject) {
+            safeAjax({ url: 'http://lampaua.mooo.com/kinozal/catalog?cat=' + (cat || 'movie') + '&page=' + page,
+                success: function (res) {
+                    var raw = Array.isArray(res) ? res : (res.items || []);
+                    var items = raw.map(function (i) { return { id: i.id, title: i.title, poster: i.poster, year: i.year || '', type: i.type || (cat === 'tv' ? 'tv' : 'movie'), url: i.url, source: 'kinozal' }; });
+                    resolve({ items: items, has_more: items.length > 0 });
+                }, error: reject });
+        }},
+        kinopoisk: { getCatalog: function (cat, page, resolve, reject) {
+            var url = 'https://api.kinopoisk.dev/v1.3/movie?limit=20&sort=popularity&language=uk-UA&page=' + page;
+            if (cat === 'tv_series') url = 'https://api.kinopoisk.dev/v1.3/series?limit=20&sort=popularity&language=uk-UA&page=' + page;
+            safeAjax({
+                url: url,
+                useCorsProxy: true,
+                success: function (res) {
+                    var raw = res.docs || [];
+                    var items = raw.map(function (i) {
+                        return {
+                            id: i.id,
+                            title: i.name || i.title,
+                            poster: i.poster ? 'https://avatars.kinopoisk.net/' + i.poster : '',
+                            year: i.year || '',
+                            type: i.series ? 'tv' : 'movie',
+                            url: 'https://www.kinopoisk.ru/' + (i.series ? 'series/' : 'film/') + i.id + '/',
+                            source: 'kinopoisk'
+                        };
+                    });
+                    resolve({ items: items, has_more: items.length > 0 });
+                }, error: reject });
+        }}
     };
 
     // ====================== КОМПОНЕНТ КАТАЛОГУ ======================
     function PrimaryCatalog(object) {
-        // весь код компоненту — той самий, що в попередній версії (без змін)
         var comp = this;
         var scroll = new Lampa.Scroll({ mask: true, over: true });
         var html = $('<div></div>');
@@ -107,9 +202,57 @@
             html.append(scroll.render());
         };
 
-        // loadLinePage, appendMoreButton, render, destroy — ті самі
-        this.loadLinePage = /* ... той самий код ... */;
-        this.appendMoreButton = /* ... той самий код ... */;
+        this.loadLinePage = function (cat, line, page, loaderOrMoreBtn) {
+            var activeSource = Lampa.Storage.get('active_primary_source', 'tmdb');
+            var provider = ApiProviders[activeSource] || ApiProviders.tmdb;
+
+            provider.getCatalog(cat.id, page, function (data) {
+                if (loaderOrMoreBtn) loaderOrMoreBtn.remove();
+                if (!data.items || !data.items.length) {
+                    if (page === 1) line.render().addClass('hide');
+                    return;
+                }
+
+                data.items.forEach(function (element) {
+                    var card = new Lampa.Card(element, { card_small: false });
+                    card.build();
+                    card.render().on('hover:enter', function () {
+                        Lampa.Activity.push({
+                            url: element.url,
+                            component: 'full',
+                            id: element.id,
+                            method: element.type || 'movie',
+                            card: element,
+                            source: element.source || activeSource
+                        });
+                    });
+                    line.append(card.render());
+                });
+
+                if (data.has_more) comp.appendMoreButton(cat, line, page + 1);
+                Lampa.Controller.enable('content');
+            }, function () {
+                if (loaderOrMoreBtn) loaderOrMoreBtn.remove();
+                if (page === 1) line.render().addClass('hide');
+            });
+        };
+
+        this.appendMoreButton = function (cat, line, nextPage) {
+            var moreBtn = $('<div class="card selector card--more">' +
+                '<div class="card__view" style="display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.08); border-radius: 0.5em; aspect-ratio: 2/3;">' +
+                    '<div style="text-align: center; padding: 0.5em;">' +
+                        '<svg height="30" viewBox="0 0 24 24" width="30" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>' +
+                        '<div style="font-size: 0.8em; margin-top: 0.4em; font-weight: bold;">Більше</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>');
+            moreBtn.on('hover:enter', function () {
+                moreBtn.find('.card__view').html('<div class="broadcast__scan"><div></div></div>');
+                comp.loadLinePage(cat, line, nextPage, moreBtn);
+            });
+            line.append(moreBtn);
+        };
+
         this.render = function () { return html; };
         this.destroy = function () {
             lines.forEach(function (l) { if (l.destroy) l.destroy(); });
@@ -159,10 +302,30 @@
     }
 
     function showSeasons(cardData, seasons) {
-        // той самий код
+        var items = seasons.map(function (s) { return { title: 'Сезон ' + s.number, season: s }; });
+        Lampa.Select.show({
+            title: 'Оберіть сезон',
+            items: items,
+            onSelect: function (item) {
+                var epItems = item.season.episodes.map(function (e) {
+                    return { title: 'Серія ' + e.number, ep: e };
+                });
+                Lampa.Select.show({
+                    title: 'Оберіть серію',
+                    items: epItems,
+                    onSelect: function (epItem) {
+                        Lampa.Player.play({
+                            title: cardData.title,
+                            subtitle: 'Сезон ' + item.season.number + ' / Серія ' + epItem.ep.number,
+                            url: epItem.ep.stream_url || epItem.ep.file
+                        });
+                    }
+                });
+            }
+        });
     }
 
-    // ====================== РЕЄСТРАЦІЯ (тільки в правому меню) ======================
+    // ====================== РЕЄСТРАЦІЯ ======================
     function initPlugin() {
         Lampa.Component.add('primary_catalog', PrimaryCatalog);
 
