@@ -358,16 +358,13 @@
             }
         });
 
-        // ====================== ПУНКТ У ПРАВОМУ МЕНЮ (з перевіркою) ======================
+        // Пункт в лівому меню (прибрано, як ти просив)
         Lampa.Listener.follow('app', function (e) {
             if (e.type === 'ready') {
-                var menuItemExists = $('.menu .menu__item[data-action="primary_catalog"]').length > 0;
-                if (menuItemExists) return; // вже існує — не дублюємо
-
                 var icon = '<svg height="24" viewBox="0 0 24 24" width="24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>';
                 var menu_item = $('<div class="menu__item selector" data-action="primary_catalog">' +
                     '<div class="menu__ico">' + icon + '</div>' +
-                    '<div class="menu__text">Основний Каталог</div>' +
+                    '<div class="menu__text">Каталог</div>' +
                 '</div>');
                 menu_item.on('hover:enter', function () {
                     Lampa.Activity.push({ title: 'Каталог', component: 'primary_catalog', page: 1 });
