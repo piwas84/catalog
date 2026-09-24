@@ -19,7 +19,7 @@
         'kinopoisk': 'Kinopoisk'
     };
 
-    // ====================== КОРС-ПРОКСІ ======================
+    // ====================== КОРС-ПРОКСІ (стабільний) ======================
     function safeAjax(params) {
         var url = params.url;
         var isExternal = !url.includes('lampaua.mooo.com');
@@ -29,16 +29,11 @@
             url = CORS_PROXY + encodeURIComponent(url);
         }
 
-        // Внутрішні джерела — без проксі (стабільніше)
-        if (!isExternal && params.useCorsProxy !== true) {
-            url = url.replace(CORS_PROXY, ''); // чистимо, якщо було
-        }
-
         $.ajax({
             url: url,
             type: params.type || 'GET',
             dataType: 'json',
-            timeout: params.timeout || 20000, // 20 секунд — стабільніше
+            timeout: params.timeout || 20000,
             headers: params.headers || {},
             success: function (res) {
                 params.success(res);
@@ -49,11 +44,9 @@
                 console.warn('CORS / Ajax error: ' + status + ' (' + statusText + ') — ' + url);
 
                 if (params.retryCount && params.retryCount < 3) {
-                    console.log('Retry ' + (params.retryCount + 1) + '/3...');
                     params.retryCount++;
                     setTimeout(function () {
-                        params.success = params.originalSuccess || params.success; // відновлюємо
-                        safeAjax(params); // повторний виклик
+                        safeAjax(params);
                     }, 800);
                     return;
                 }
@@ -189,9 +182,7 @@
         }}
     };
 
-    // ====================== КОМПОНЕНТ КАТАЛОГУ, ОНЛАЙН ПЛЕЄР, РЕЄСТРАЦІЯ ======================
-    // (весь код PrimaryCatalog, startOnlinePlayback, showSeasons, initPlugin — ідентичний попередній версії)
-
+    // ====================== КОМПОНЕНТ КАТАЛОГУ ======================
     function PrimaryCatalog(object) {
         var comp = this;
         var scroll = new Lampa.Scroll({ mask: true, over: true });
@@ -282,6 +273,7 @@
         };
     }
 
+    // ====================== ОНЛАЙН ПЛЕЄР ======================
     function startOnlinePlayback(cardData) {
         var source = Lampa.Storage.get('active_primary_source', 'tmdb');
         Lampa.Noty.show('Пошук потоків [' + source.toUpperCase() + ']...');
@@ -345,6 +337,7 @@
         });
     }
 
+    // ====================== РЕЄСТРАЦІЯ В ЛАМПА ======================
     function initPlugin() {
         Lampa.Component.add('primary_catalog', PrimaryCatalog);
 
@@ -379,6 +372,7 @@
             }
         });
 
+        // Пункт в лівому меню (тільки один раз)
         Lampa.Listener.follow('app', function (e) {
             if (e.type === 'ready') {
                 var icon = '<svg height="24" viewBox="0 0 24 24" width="24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>';
@@ -406,5 +400,4 @@
     }
 
     if (window.appready) initPlugin();
-    else Lampa.Listener.follow('app', function (e) { if (e.type === 'ready') initPlugin(); });
-})();
+    else Lampa.Listener.follow('app', func
